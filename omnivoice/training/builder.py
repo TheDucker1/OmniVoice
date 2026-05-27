@@ -128,6 +128,10 @@ def build_model_and_tokenizer(
     return model, tokenizer
 
 
+def _get_sample_length(s):
+    return s["length"]
+
+
 def build_dataloaders(
     config: TrainingConfig, tokenizer: AutoTokenizer
 ) -> Tuple[DataLoader, DataLoader]:
@@ -175,7 +179,7 @@ def build_dataloaders(
             max_length=config.max_sample_tokens,
             max_sample=config.max_batch_size,
             processor=processor,
-            length_fn=lambda s: s["length"],
+            length_fn=_get_sample_length,
         )
         collate_fn = PaddingDataCollator(processor, config.batch_tokens)
 
@@ -222,7 +226,7 @@ def build_dataloaders(
                 max_length=config.max_sample_tokens,
                 max_sample=config.max_batch_size,
                 processor=processor,
-                length_fn=lambda s: s["length"],
+                length_fn=_get_sample_length,
             )
         eval_loader = DataLoader(
             dev_dataset,

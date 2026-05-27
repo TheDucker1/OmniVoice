@@ -480,8 +480,8 @@ def main() -> None:
         if shard_idx > 0 and shard_sample_count > 0:
             prev_idx = shard_idx - 1
             shard_manifest[prev_idx] = (
-                os.path.abspath(tar_output_pattern % prev_idx),
-                os.path.abspath(jsonl_output_pattern % prev_idx),
+                os.path.relpath(tar_output_pattern % prev_idx).replace("\\", "/"),
+                os.path.relpath(jsonl_output_pattern % prev_idx).replace("\\", "/"),
                 shard_sample_count,
                 shard_duration,
             )
@@ -589,8 +589,8 @@ def main() -> None:
         if shard_idx > 0 and shard_sample_count > 0:
             last_idx = shard_idx - 1
             shard_manifest[last_idx] = (
-                os.path.abspath(tar_output_pattern % last_idx),
-                os.path.abspath(jsonl_output_pattern % last_idx),
+                os.path.relpath(tar_output_pattern % last_idx).replace("\\", "/"),
+                os.path.relpath(jsonl_output_pattern % last_idx).replace("\\", "/"),
                 shard_sample_count,
                 shard_duration,
             )

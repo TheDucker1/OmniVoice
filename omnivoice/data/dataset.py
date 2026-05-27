@@ -318,8 +318,25 @@ class WebDatasetReader(IterableDataReader):
         self.num_items = 0
         self.num_seconds = 0.0
         for tar_path, label_jsonl_path, num_items, num_seconds in manifests:
-            self.orig_urls.append(tar_path)
-            self.tar_to_label[tar_path] = label_jsonl_path
+            # Clean and normalize paths for Windows compatibility with webdataset/gopen
+            if os.path.isabs(tar_path) or ":" in tar_path:
+                try:
+                    norm_tar_path = os.path.relpath(tar_path).replace("\\", "/")
+                except ValueError:
+                    norm_tar_path = tar_path.replace("\\", "/")
+            else:
+                norm_tar_path = tar_path.replace("\\", "/")
+
+            if os.path.isabs(label_jsonl_path) or ":" in label_jsonl_path:
+                try:
+                    norm_label_path = os.path.relpath(label_jsonl_path).replace("\\", "/")
+                except ValueError:
+                    norm_label_path = label_jsonl_path.replace("\\", "/")
+            else:
+                norm_label_path = label_jsonl_path.replace("\\", "/")
+
+            self.orig_urls.append(norm_tar_path)
+            self.tar_to_label[norm_tar_path] = norm_label_path
             self.num_items += num_items
             self.num_seconds += num_seconds
         self.urls = self.orig_urls.copy()

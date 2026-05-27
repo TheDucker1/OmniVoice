@@ -134,11 +134,30 @@ def save_checkpoint(
 
     # 2. Save Model in HF format (config.json + pytorch_model.bin/safetensors)
     unwrap_model = accelerator.unwrap_model(model)
-    unwrap_model.save_pretrained(
-        checkpoint_dir,
-        is_main_process=accelerator.is_main_process,
-        save_function=accelerator.save,
-    )
+    
+    # PEFT compatibility: if the LLM backbone is a PEFT model, temporarily merge weights
+    # and clean state_dict prefixes so it saves as a standard clean model.
+    is_peft = False
+    try:
+        from peft import PeftModel
+        if hasattr(unwrap_model, "llm") and isinstance(unwrap_model.llm, PeftModel):
+            is_peft = True
+    except ImportError:
+        pass
+
+    if is_peft:
+        logger.info("Saving PEFT adapter checkpoint...")
+        unwrap_model.llm.save_pretrained(
+            checkpoint_dir,
+            is_main_process=accelerator.is_main_process,
+            save_function=accelerator.save,
+        )
+    else:
+        unwrap_model.save_pretrained(
+            checkpoint_dir,
+            is_main_process=accelerator.is_main_process,
+            save_function=accelerator.save,
+        )
 
     # 3. Save Tokenizer
     if accelerator.is_main_process:
