@@ -81,6 +81,13 @@ from omnivoice.utils.voice_design import (
 
 logger = logging.getLogger(__name__)
 
+try:
+    from omnivoice.utils.unsloth_patch import apply_unsloth_patches
+    apply_unsloth_patches()
+except Exception as e:
+    logger.warning(f"Could not import or apply Unsloth patches: {e}")
+
+
 
 # ---------------------------------------------------------------------------
 # Dataclasses

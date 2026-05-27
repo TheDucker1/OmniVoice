@@ -36,6 +36,7 @@ import sys
 from omnivoice.training.builder import build_dataloaders, build_model_and_tokenizer
 from omnivoice.training.config import TrainingConfig
 from omnivoice.training.trainer import OmniTrainer
+from omnivoice.utils.unsloth_patch import apply_unsloth_patches
 
 logger = logging.getLogger("omnivoice.cli.train_lora")
 
@@ -76,8 +77,12 @@ def main():
         )
         config.attn_implementation = "sdpa"
 
-    # 2. Build Base Model and Tokenizer (Loads original pre-trained weights)
+    # 2. Apply Unsloth speedup patches
+    apply_unsloth_patches()
+
+    # 3. Build Base Model and Tokenizer (Loads original pre-trained weights)
     model, tokenizer = build_model_and_tokenizer(config)
+
 
     # 3. Apply PEFT LoRA
     logger.info("Initializing PEFT LoRA setup...")
@@ -113,6 +118,33 @@ def main():
         f"Applying LoRA wrapper to LLM backbone with rank={lora_r}, alpha={lora_alpha}."
     )
     model.llm = get_peft_model(model.llm, lora_config)
+
+    # Optimize state_dict for PEFT to avoid saving the whole 1.5 GB base model in Accelerate
+    import types
+    model._original_state_dict = model.state_dict
+    
+    def lora_only_state_dict(self, *args, **kwargs):
+        state_dict = self._original_state_dict(*args, **kwargs)
+        clean_dict = {}
+        for k, v in state_dict.items():
+            try:
+                param = self.get_parameter(k)
+                if param.requires_grad:
+                    clean_dict[k] = v
+            except Exception:
+                if "lora_" in k:
+                    clean_dict[k] = v
+        return clean_dict
+        
+    model.state_dict = types.MethodType(lora_only_state_dict, model)
+
+    # Force non-strict loading to allow resuming from these lightweight checkpoints
+    model._original_load_state_dict = model.load_state_dict
+    
+    def non_strict_load_state_dict(self, state_dict, strict=True, *args, **kwargs):
+        return self._original_load_state_dict(state_dict, strict=False, *args, **kwargs)
+        
+    model.load_state_dict = types.MethodType(non_strict_load_state_dict, model)
 
     # Print trainable parameters to verify
     model.llm.print_trainable_parameters()
